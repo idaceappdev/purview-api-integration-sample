@@ -25,6 +25,8 @@
 
 </div>
 
+This sample is originally forked from [Azure-Samples/serverless-chat-langchainjs](https://github.com/Azure-Samples/serverless-chat-langchainjs) and has been modified to integrate with the **Microsoft Purview API**. This integration showcases how Purview can be used to **audit and secure AI prompts and responses**.All deployment instructions remain the same as in the original repository. However, there are additional setup steps required for the Purview integration, which are explained in the [Purview API Integration](#PurviewAPIIntegration) section below.
+
 This sample shows how to build a serverless AI chat experience with Retrieval-Augmented Generation using [LangChain.js](https://js.langchain.com/) and Azure. The application is hosted on [Azure Static Web Apps](https://learn.microsoft.com/azure/static-web-apps/overview) and [Azure Functions](https://learn.microsoft.com/azure/azure-functions/functions-overview?pivots=programming-language-javascript), with [Azure Cosmos DB for NoSQL](https://learn.microsoft.com/azure/cosmos-db/nosql/vector-) as the vector database. You can use it as a starting point for building more complex AI applications.
 
 > [!TIP]
@@ -152,6 +154,8 @@ To clean up all the Azure resources created by this sample:
 
 The resource group and all the resources will be deleted.
 
+### Purview API Integration
+<Placeholder>
 ### Run the sample locally with Ollama
 
 If you have a machine with enough resources, you can run this sample entirely locally without using any cloud resources. To do that, you first have to install [Ollama](https://ollama.com) and then run the following commands to download the models on your machine:
