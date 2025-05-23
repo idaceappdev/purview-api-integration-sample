@@ -25,7 +25,7 @@
 
 </div>
 
-This sample is originally forked from [Azure-Samples/serverless-chat-langchainjs](https://github.com/Azure-Samples/serverless-chat-langchainjs) and has been modified to integrate with the **Microsoft Purview API**. This integration showcases how Purview can be used to **audit and secure AI prompts and responses**.All deployment instructions remain the same as in the original repository. However, there are additional setup steps required for the Purview integration, which are explained in the [Purview API Integration](#purview-api-integration) section below.
+This sample is originally forked from [Azure-Samples/serverless-chat-langchainjs](https://github.com/Azure-Samples/serverless-chat-langchainjs) and has been modified to integrate with the **Microsoft Purview API**. This integration showcases how Purview can be used to **audit and secure AI prompts and responses**. Most of the deployment instructions remain the same as in the original repository. However, there are additional steps required for the Purview integration,and it has to be done pre-deployment phase and explained in the [Purview API Integration](#purview-api-integration) section below.
 
 This sample shows how to build a serverless AI chat experience with Retrieval-Augmented Generation using [LangChain.js](https://js.langchain.com/) and Azure. The application is hosted on [Azure Static Web Apps](https://learn.microsoft.com/azure/static-web-apps/overview) and [Azure Functions](https://learn.microsoft.com/azure/azure-functions/functions-overview?pivots=programming-language-javascript), with [Azure Cosmos DB for NoSQL](https://learn.microsoft.com/azure/cosmos-db/nosql/vector-) as the vector database. You can use it as a starting point for building more complex AI applications.
 
@@ -125,13 +125,108 @@ There are multiple ways to run this sample: locally using Ollama or Azure OpenAI
 
 See the [cost estimation](./docs/cost.md) details for running this sample on Azure.
 
-#### Deploy the sample
+### Purview API Integration
+
+As part of the Purview API integration, the app must first authenticate with Microsoft Entra ID, and then acquire a Purview Graph token. This token enables Purview policies to be enforced for both the user and the application. Based on the applicable policy, the app will invoke the appropriate APIs.
+
+The sections below explain the manual steps required to set up the Entra app registrations needed to obtain the token. These app registration details will later be used during deployment to configure the sample.
+
+#### Register the backend app (backend-node-api)
+
+1. Navigate to the [Microsoft Entra admin center](https://entra.microsoft.com) and select the **Microsoft Entra ID** service.
+1. Select the **App Registrations** blade on the left, then select **New registration**.
+1. In the **Register an application page** that appears, enter your application's registration information:
+   1. In the **Name** section, enter a meaningful application name that will be displayed to users of the app, for example `backend-node-api`.
+   1. Under **Supported account types**, select **Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)**
+   1. Select **Register** to create the application.
+1. In the **Overview** blade, find and note the **Application (client) ID**. You use this value later while deploying this sample through `azd command`.
+1. In the app's registration screen, select the **Expose an API** blade to the left to open the page where you can publish the permission as an API for which client applications can obtain [access tokens](https://aka.ms/access-tokens) for. The first thing that we need to do is to declare the unique [resource](https://docs.microsoft.com/azure/active-directory/develop/v2-oauth2-auth-code-flow) URI that the clients will be using to obtain access tokens for this API. To declare an resource URI(Application ID URI), follow the following steps:
+   1. Select **Set** next to the **Application ID URI** to generate a URI that is unique for this app.
+   1. For this sample, accept the proposed Application ID URI (`api://{clientId}`) by selecting **Save**.
+      > :information_source: Read more about Application ID URI at [Validation differences by supported account types (signInAudience)](https://docs.microsoft.com/azure/active-directory/develop/supported-accounts-validation).
+
+##### Publish Delegated Permissions
+
+1. All APIs must publish a minimum of one [scope](https://docs.microsoft.com/azure/active-directory/develop/v2-oauth2-auth-code-flow#request-an-authorization-code), also called [Delegated Permission](https://docs.microsoft.com/azure/active-directory/develop/v2-permissions-and-consent#permission-types), for the client apps to obtain an access token for a _user_ successfully. To publish a scope, follow these steps:
+1. Select **Add a scope** button open the **Add a scope** screen and Enter the values as indicated below:
+   1. For **Scope name**, use `access_as_user`.
+   1. Select **Admins and users** options for **Who can consent?**.
+   1. For **Admin consent display name** type in _access_as_user_.
+   1. For **Admin consent description** type in _e.g. Allows the app to get LLM response._.
+   1. For **User consent display name** type in _scopeName_.
+   1. For **User consent description** type in _eg. Allows the app to get LLM response._.
+   1. Keep **State** as **Enabled**.
+   1. Select the **Add scope** button on the bottom to save this scope.
+
+> :information_source: Follow [the principle of least privilege when publishing permissions](https://learn.microsoft.com/security/zero-trust/develop/protected-api-example) for a web API.
+
+1. From the **Certificates & secrets** page, in the **Client secrets** section, choose **New client secret**:
+
+   - Type a key description (of instance `app secret`),
+   - Select a key duration of either **In 1 year**, **In 2 years**, or **Never Expires**.
+   - When you press the **Add** button, the key value will be displayed, copy, and save the value in a safe location.
+   - You'll need this key later to during the package deployment through `azd up` command. . This key value will not be displayed again, nor retrievable by any other means,
+     so record it as soon as it is visible from the Azure portal.
+
+##### Configure/grant the service app (backend-node-api) permissions to invoke the Purview API
+
+> In the steps below, "ClientID" is the same as "Application ID" or "AppId".
+
+1. Consuruct the below URL and replace the `<CLIENT_ID>` by the app registration id of the backend app
+
+```url
+https://login.microsoftonline.com/organizations/v2.0/adminconsent?client_id=%3CCLIENT_ID%3E&scope=Content.Process.User%20ProtectionScopes.Compute.User%20ContentActivity.Write%20SensitivityLabel.Read
+```
+
+1. Find the key `Enter_the_Application_Id_Here` and replace the existing value with the application ID (clientId) of `msal-node-api` app copied from the Microsoft Entra admin center.
+1. Find the key `Enter_the_Tenant_Info_Here` and replace the existing value with your Microsoft Entra tenant/directory ID.
+
+#### Register the client app (front-end-javascript-spa)
+
+1. Navigate to the [Microsoft Entra admin center](https://entra.microsoft.com) and select the **Microsoft Entra ID** service.
+1. Select the **App Registrations** blade on the left, then select **New registration**.
+1. In the **Register an application page** that appears, enter your application's registration information:
+   1. In the **Name** section, enter a meaningful application name that will be displayed to users of the app, for example `msal-javascript-spa`.
+   1. Under **Supported account types**, select **Accounts in this organizational directory only**
+   1. Select **Register** to create the application.
+1. In the **Overview** blade, find and note the **Application (client) ID**. You use this value in your app's configuration file(s) later in your code.
+1. In the app's registration screen, select the **Authentication** blade to the left.
+1. If you don't have a platform added, select **Add a platform** and select the **Single-page application** option.
+   1. In the **Redirect URI** section enter the following redirect URIs:
+      1. `http://localhost:8000`
+   1. Click **Save** to save your changes.
+1. Since this app signs-in users, we will now proceed to select **delegated permissions**, which is is required by apps signing-in users.
+   1. In the app's registration screen, select the **API permissions** blade in the left to open the page where we add access to the APIs that your application needs:
+   1. Select the **Add a permission** button and then:
+   1. Ensure that the **My APIs** tab is selected.
+   1. In the list of APIs, select the API `backend-node-api`.
+   1. In the **Delegated permissions** section, select **access_as_user** in the list. Use the search box if necessary.
+   1. Select the **Add permissions** button at the bottom.
+
+##### Configure the client app (front-end-javascript-spa) to use your app registration
+
+Open the project in your IDE (like VVisual Studio Code) to configure the code.
+
+> In the steps below, "ClientID" is the same as "Application ID" or "AppId" \
+
+1. Navigate to the packages->webapp folderand create a new file called `.env` andd insert the below information.
+1. "<CLIENT_ID>" should be replaced by the appid of the front-end app registration.
+1. "<API_ID>" should be replaced by the appid of the backned-end app registration.
+
+```env
+VITE_AZURE_AD_CLIENT_ID="<CLIENT_ID>"
+VITE_AZURE_AD_AUTHORITY_HOST="https://login.microsoftonline.com/organizations"
+VITE_BACKEND_API_SCOPE="api://<API_ID>/access_as_user"
+```
+
+### Deploy the sample
 
 1. Open a terminal and navigate to the root of the project.
 2. Authenticate with Azure by running `azd auth login`.
 3. Run `azd up` to deploy the application to Azure. This will provision Azure resources, deploy this sample, and build the search index based on the files found in the `./data` folder.
    - You will be prompted to select a base location for the resources. If you're unsure of which location to choose, select `eastus2`.
    - By default, the OpenAI resource will be deployed to `eastus2`. You can set a different location with `azd env set AZURE_OPENAI_RESOURCE_GROUP_LOCATION <location>`. Currently only a short list of locations is accepted. That location list is based on the [OpenAI model availability table](https://learn.microsoft.com/azure/ai-services/openai/concepts/models#standard-deployment-model-availability) and may become outdated as availability changes.
+   - You will be prompted to insert the app id of the backend app registration followed by the secret that yuu have created in the app registration step.
 
 The deployment process will take a few minutes. Once it's done, you'll see the URL of the web app in the terminal.
 
@@ -139,7 +234,43 @@ The deployment process will take a few minutes. Once it's done, you'll see the U
   <img src="./docs/images/azd-up.png" alt="Screenshot of the azd up command result" width="600px" />
 </div>
 
+### Note on Redirect URI Error
+
+> **Note**: When you run the application for the first time, you may encounter a **Redirect URI error**. This happens because the web app URL is not yet registered as a redirect URI in the front-end app registration.  
+> To resolve this:
+>
+> 1. Copy the web app URL displayed in the terminal after deployment (e.g., `https://<your-webapp-name>.azurestaticapps.net`).
+> 2. Navigate to the **Microsoft Entra admin center** ([https://entra.microsoft.com](https://entra.microsoft.com)).
+> 3. Select your **front-end app registration**.
+> 4. Go to the **Authentication** blade and update the **Redirect URI** under the **Single-page application (SPA)** section with the web app URL.
+> 5. Save the changes and retry accessing the application.
+
 You can now open the web app in your browser and start chatting with the bot.
+
+### Updating the label information for documents
+
+By default, the documents uploaded from the `data` folder are assigned a generic label.  
+We recommend updating each file with the correct label information.  
+For production you could integrate the Microsoft Information Protection (MIP) SDK to read label metadata automatically; for demo purposes you can upload the files manually as shown below.
+
+> #### PowerShell
+> ```powershell
+> Invoke-RestMethod -Uri "http://localhost:7071/api/documents" `
+>   -Method Post `
+>   -Form @{
+>     file      = Get-Item .\support.pdf
+>     labelId   = "your-label-id"
+>     labelName = "your-label-name"
+>   }
+> ```
+
+> #### POSIX shell
+> ```bash
+> curl -X POST http://localhost:7071/api/documents \
+>   -F "file=@data/your-document.pdf" \
+>   -F "labelId=123456789" \
+>   -F "labelName=General"
+> ```
 
 ##### Enhance security
 
@@ -154,9 +285,6 @@ To clean up all the Azure resources created by this sample:
 
 The resource group and all the resources will be deleted.
 
-### Purview API Integration
-<Placeholder>
-  
 ### Run the sample locally with Ollama
 
 If you have a machine with enough resources, you can run this sample entirely locally without using any cloud resources. To do that, you first have to install [Ollama](https://ollama.com) and then run the following commands to download the models on your machine:

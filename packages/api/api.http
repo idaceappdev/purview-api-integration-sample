@@ -13,8 +13,16 @@ Content-Type: multipart/form-data; boundary=Boundary
 --Boundary
 Content-Disposition: form-data; name="file"; filename="support.pdf"
 Content-Type: application/pdf
-
+ 
 < ../../data/support.pdf
+--Boundary
+Content-Disposition: form-data; name="labelId"
+ 
+123456789
+--Boundary
+Content-Disposition: form-data; name="labelName"
+ 
+General
 --Boundary--
 
 ### Retrieve PDF document

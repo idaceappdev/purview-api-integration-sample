@@ -5,6 +5,26 @@ targetScope = 'subscription'
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
+
+@description('API ID for the backend application')
+param backendAPICLientId string
+
+@description('Authority host for Azure AD authentication')
+param azureAdAuthorityHost string= 'https://login.microsoftonline.com/organizations'
+
+@description('Graph API scope for Azure AD authentication')
+param azureAdGraphScope string = 'Content.Process.User ProtectionScopes.Compute.User ContentActivity.Write SensitivityLabel.Read'
+
+@description('Base URL for Purview API')
+param purviewBaseUrl string = 'https://graph.microsoft.com/beta/'
+
+@description('Accepted access rights for the files')
+param acceptedAccessRights string = 'exception,extract'
+
+@secure()
+@description('Secret created for the backend application')
+param backendAPIClientSecret string
+
 @minLength(1)
 @description('Primary location for all resources')
 param location string
@@ -87,8 +107,8 @@ module webapp './core/host/staticwebapp.bicep' = {
     } : {
       name: 'Free'
       tier: 'Free'
-    }
-  }
+    }           
+  }  
 }
 
 // The application backend API
@@ -114,7 +134,13 @@ module api './app/api.bicep' = {
       AZURE_OPENAI_API_EMBEDDINGS_DEPLOYMENT_NAME: embeddingsDeploymentName
       AZURE_COSMOSDB_NOSQL_ENDPOINT: cosmosDb.outputs.endpoint
       AZURE_STORAGE_URL: storageUrl
-      AZURE_STORAGE_CONTAINER_NAME: blobContainerName
+      AZURE_STORAGE_CONTAINER_NAME: blobContainerName      
+      AZURE_AD_API_ID: backendAPICLientId
+      AZURE_AD_API_SECRET: backendAPIClientSecret
+      AZURE_AD_AUTHORITY_HOST: azureAdAuthorityHost
+      AZURE_AD_GRAPH_SCOPE: azureAdGraphScope
+      PURVIEW_BASE_URL: purviewBaseUrl                   
+      PURVIEW_ACCEPTED_ACCESS_RIGHTS:acceptedAccessRights
      }
   }
   dependsOn: empty(openAiUrl) ? [] : [openAi]
@@ -370,9 +396,7 @@ module dbContribRoleApi './core/database/cosmos/sql/cosmos-sql-role-assign.bicep
 }
 
 output AZURE_LOCATION string = location
-output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_RESOURCE_GROUP string = resourceGroup.name
-
 output AZURE_OPENAI_API_ENDPOINT string = finalOpenAiUrl
 output AZURE_OPENAI_API_INSTANCE_NAME string = openAi.outputs.name
 output AZURE_OPENAI_API_VERSION string = openAiApiVersion
@@ -385,3 +409,10 @@ output AZURE_COSMOSDB_NOSQL_ENDPOINT string = cosmosDb.outputs.endpoint
 output API_URL string = useVnet ? '' : api.outputs.uri
 output WEBAPP_URL string = webapp.outputs.uri
 output UPLOAD_URL string = useVnet ? webapp.outputs.uri : api.outputs.uri
+
+output AZURE_AD_API_ID string = backendAPICLientId
+output AZURE_AD_API_SECRET string = backendAPIClientSecret
+output AZURE_AD_AUTHORITY_HOST string = azureAdAuthorityHost
+output AZURE_AD_GRAPH_SCOPE string = azureAdGraphScope
+output PURVIEW_BASE_URL string = purviewBaseUrl
+output PURVIEW_ACCEPTED_ACCESS_RIGHTS string = acceptedAccessRights

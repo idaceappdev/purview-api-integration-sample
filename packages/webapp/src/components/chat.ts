@@ -268,15 +268,20 @@ export class ChatComponent extends LitElement {
     </div>
   `;
 
-  protected renderCitation = (citation: string, index: number) =>
-    html`<button
-      class="citation"
-      @click=${() => {
-        this.onCitationClicked(citation);
-      }}
-    >
-      ${index + 1}. ${citation}
-    </button>`;
+  protected renderCitation = (citation: string, index: number) => {
+    // Extract filename and label_name from the citation
+    const [filename, labelName] = citation.split('(Label:').map((part) => part.trim().replace(')', ''));
+    return html`
+      <button
+        class="citation"
+        @click=${() => {
+          this.onCitationClicked(filename);
+        }}
+      >
+        ${index + 1}. ${filename}${labelName ? html` <i>(Label: ${labelName})</i>` : nothing}
+      </button>
+    `;
+  };
 
   protected renderCitationReference = (_citation: string, index: number) => html`<sup>[${index}]</sup>`;
 

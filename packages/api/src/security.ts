@@ -1,5 +1,5 @@
 import { HttpRequest } from '@azure/functions';
-import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
+import { DefaultAzureCredential, DefaultAzureCredentialOptions, getBearerTokenProvider } from '@azure/identity';
 
 const azureOpenAiScope = 'https://cognitiveservices.azure.com/.default';
 
@@ -9,7 +9,17 @@ export function getCredentials(): DefaultAzureCredential {
   // Use the current user identity to authenticate.
   // No secrets needed, it uses `az login` or `azd auth login` locally,
   // and managed identity when deployed on Azure.
-  credentials ||= new DefaultAzureCredential();
+
+  // VS code often causes issues and gets confused with which account to be loaded. So explicitly pass the tenant id
+  if (process.env.AZURE_ENV_TYPE === 'dev') {
+    const options: DefaultAzureCredentialOptions = {
+      tenantId: process.env.AZURE_TENANT_ID, // Explicitly set the tenant ID
+    };
+    credentials ||= new DefaultAzureCredential(options);
+  } else {
+    credentials ||= new DefaultAzureCredential();
+  }
+
   return credentials;
 }
 

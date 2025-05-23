@@ -5,6 +5,12 @@
     "environmentName": {
       "value": "${AZURE_ENV_NAME}"
     },
+    "backendAPICLientId": {
+      "value": "${AZURE_AD_API_ID}"
+    },
+    "backendAPIClientSecret": {
+      "value": "${AZURE_AD_API_SECRET}"
+    },
     "resourceGroupName": {
       "value": "${AZURE_RESOURCE_GROUP}"
     },
